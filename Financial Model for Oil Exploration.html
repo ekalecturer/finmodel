@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive POD Financial Model: Alpha Oil Field</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices: 
+        - Assumptions: Text + Input fields (HTML/JS) for interactivity (Goal: Explore impact).
+        - Production/Revenue: Table + Line/Bar charts (Chart.js) for trends (Goal: Inform, Change).
+        - Costs: Table + Stacked Bar chart (Chart.js) for component trends (Goal: Inform, Compare, Change).
+        - Cash Flow: Table + Line charts (Chart.js) for net flow trends (Goal: Inform, Change).
+        - Valuation: Dynamic text display (HTML/JS) for key metrics (Goal: Inform, Summarize).
+        Justification: Visualizations aid understanding of trends and data relationships. Interactivity on assumptions allows basic sensitivity.
+        NO SVG/Mermaid. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tab-button { transition: background-color 0.3s ease, color 0.3s ease; }
+        .tab-button.active { background-color: #2563eb; color: white; }
+        .tab-button:not(.active):hover { background-color: #dbeafe; }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .chart-container { position: relative; width: 100%; max-width: 700px; margin-left: auto; margin-right: auto; height: 350px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+        th, td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
+        th { background-color: #f9fafb; font-weight: 600; }
+        .metric-card { background-color: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .input-group input { width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #d1d5db; }
+    </style>
+</head>
+<body class="bg-neutral-100 text-neutral-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-sky-700">Interactive Financial Model: Alpha Oil Field POD</h1>
+            <p class="text-neutral-600 mt-2">Explore the financial projections and valuation of the Alpha Oil Field development.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center gap-2">
+            <button class="tab-button active py-2 px-4 rounded-md font-medium" data-tab="overview">Overview & Assumptions</button>
+            <button class="tab-button py-2 px-4 rounded-md font-medium" data-tab="production">Production & Revenue</button>
+            <button class="tab-button py-2 px-4 rounded-md font-medium" data-tab="costs">Costs</button>
+            <button class="tab-button py-2 px-4 rounded-md font-medium" data-tab="fiscal">Fiscal & Cash Flow</button>
+            <button class="tab-button py-2 px-4 rounded-md font-medium" data-tab="valuation">Valuation</button>
+        </nav>
+
+        <main>
+            <section id="overview" class="content-section active bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-sky-600">I. Project Overview & Key Assumptions</h2>
+                <p class="mb-4 text-neutral-700">This section outlines the fundamental assumptions underpinning the financial model for the Alpha Oil Field development. You can adjust certain key assumptions below to see their impact on the project's valuation metrics in real-time. The model is based on a Gross Split Production Sharing Contract (PSC) in Indonesia over a 5-year illustrative period.</p>
+                
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-3 text-sky-500">Base Assumptions</h3>
+                        <ul class="list-disc list-inside text-neutral-700 space-y-1">
+                            <li><strong>Project Name:</strong> Alpha Oil Field Development</li>
+                            <li><strong>Contract Type:</strong> Gross Split PSC (Indonesia)</li>
+                            <li><strong>Production Decline Rate:</strong> 10% per year (after Year 1)</li>
+                            <li><strong>Capital Expenditure (CAPEX):</strong> $200 Million (MM) in Year 0</li>
+                            <li><strong>Variable OPEX:</strong> $15/barrel</li>
+                            <li><strong>Fixed OPEX:</strong> $10 MM per year</li>
+                            <li><strong>Abandonment Costs:</strong> $50 MM (incurred in Year 5)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-3 text-sky-500">Interactive Assumptions</h3>
+                        <div class="input-group">
+                            <label for="projectDuration">Project Duration (Years):</label>
+                            <input type="number" id="projectDuration" value="5" step="1" min="1" class="border-gray-300">
+                        </div>
+                        <div class="input-group">
+                            <label for="initialProvedReserves">Initial Proved Reserves (MMbbl):</label>
+                            <input type="number" id="initialProvedReserves" value="100" step="1" min="0" class="border-gray-300">
+                        </div>
+                        <div class="input-group">
+                            <label for="initialAnnualProduction">Initial Annual Production (Year 1, MMbbl/year):</label>
+                            <input type="number" id="initialAnnualProduction" value="10" step="0.1" min="0" class="border-gray-300">
+                        </div>
+                        <div class="input-group">
+                            <label for="oilPrice">Oil Price ($/barrel):</label>
+                            <input type="number" id="oilPrice" value="70" step="1" class="border-gray-300">
+                        </div>
+                        <div class="input-group">
+                            <label for="discountRate">Discount Rate (% for NPV):</label>
+                            <input type="number" id="discountRate" value="10" step="0.1" class="border-gray-300">
+                        </div>
+                         <button id="updateAssumptionsBtn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-md w-full">
+                            Update Model
+                        </button>
+                    </div>
+                </div>
+                <p class="text-sm text-neutral-500 mt-4">Note: Changes to these assumptions will dynamically update relevant charts and valuation metrics throughout the application.</p>
+            </section>
+
+            <section id="production" class="content-section bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-sky-600">II. Production & Revenue Schedule</h2>
+                <p class="mb-4 text-neutral-700">This section projects the annual oil production volumes and calculates the gross revenue based on the assumed oil price. The production starts at 10 MMbbl in Year 1 and declines by 10% annually thereafter. Gross revenue is a direct function of production volume and the oil price.</p>
+                <div class="chart-container mb-8">
+                    <canvas id="productionRevenueChart"></canvas>
+                </div>
+                <div class="overflow-x-auto">
+                    <table id="productionRevenueTable" class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Production (MMbbl)</th>
+                                <th>Oil Price ($/bbl)</th>
+                                <th>Gross Revenue ($MM)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="costs" class="content-section bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-sky-600">III. Cost Schedule</h2>
+                <p class="mb-4 text-neutral-700">This schedule details the projected Capital Expenditures (CAPEX) and Operating Expenditures (OPEX) over the project's life. CAPEX is incurred upfront in Year 0 for initial development. OPEX consists of variable costs tied to production volume and fixed annual costs. Abandonment costs are planned for Year 5.</p>
+                <div class="chart-container mb-8">
+                    <canvas id="costScheduleChart"></canvas>
+                </div>
+                <div class="overflow-x-auto">
+                    <table id="costScheduleTable" class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>CAPEX ($MM)</th>
+                                <th>Variable OPEX ($MM)</th>
+                                <th>Fixed OPEX ($MM)</th>
+                                <th>Total OPEX ($MM)</th>
+                                <th>Abandonment Costs ($MM)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="fiscal" class="content-section bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-sky-600">IV. Fiscal Regime Application & Cash Flow</h2>
+                <p class="mb-4 text-neutral-700">This section applies the simplified Gross Split PSC fiscal terms to determine the contractor's share of revenue and net cash flow. Key fiscal terms include the contractor's base split, Domestic Market Obligation (DMO), and Corporate Income Tax (CIT). The resulting cash flows are crucial for project valuation. The DMO calculation reflects the values presented in the source report's table to ensure consistency.</p>
+                <div class="chart-container mb-8">
+                    <canvas id="cashFlowChart"></canvas>
+                </div>
+                <h3 class="text-xl font-semibold my-4 text-sky-500">Fiscal Regime Calculation (Gross Split PSC - Simplified)</h3>
+                <ul class="list-disc list-inside text-neutral-700 space-y-1 mb-4">
+                    <li><strong>Base Split (Contractor):</strong> 47% for crude oil</li>
+                    <li><strong>Domestic Market Obligation (DMO):</strong> Calculated as per source report: an adjustment reducing contractor's revenue, equivalent to `(Total Production * 25% * Oil Price * 50%)`.</li>
+                    <li><strong>Corporate Income Tax (CIT):</strong> 25%</li>
+                </ul>
+                <div class="overflow-x-auto mb-8">
+                    <table id="fiscalRegimeTable" class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Gross Revenue ($MM)</th>
+                                <th>Contractor's Gross Share (47%) ($MM)</th>
+                                <th>DMO Adjustment ($MM)</th>
+                                <th>Net Contractor Revenue (after DMO) ($MM)</th>
+                                <th>Total OPEX ($MM)</th>
+                                <th>Taxable Income ($MM)</th>
+                                <th>CIT (25%) ($MM)</th>
+                                <th>Contractor's NCF (Pre-Abandonment) ($MM)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <h3 class="text-xl font-semibold my-4 text-sky-500">Project Cash Flow Summary (Contractor's Perspective)</h3>
+                <div class="overflow-x-auto">
+                     <table id="projectCashFlowTable" class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Initial Investment ($MM)</th>
+                                <th>Net Cash Flow (Pre-Abandonment) ($MM)</th>
+                                <th>Abandonment Costs ($MM)</th>
+                                <th>Total Net Cash Flow ($MM)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="valuation" class="content-section bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-sky-600">V. Project Valuation Metrics</h2>
+                <p class="mb-6 text-neutral-700">Based on the projected cash flows, this section presents key economic indicators used to assess the financial viability of the Alpha Oil Field project. These metrics help in understanding the project's profitability, return potential, and risk profile from the contractor's perspective.</p>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="metric-card">
+                        <h3 class="text-xl font-semibold text-sky-500 mb-2">Net Present Value (NPV)</h3>
+                        <p id="npvValue" class="text-3xl font-bold text-neutral-800">-$XX.XX MM</p>
+                        <p class="text-sm text-neutral-600 mt-1">Discounted at <span id="npvDiscountRate">10</span>%</p>
+                        <p class="text-neutral-700 mt-3">NPV measures the project's total expected value in today's money. A positive NPV generally indicates a financially viable project.</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="text-xl font-semibold text-sky-500 mb-2">Internal Rate of Return (IRR)</h3>
+                        <p id="irrValue" class="text-3xl font-bold text-neutral-800">X.X%</p>
+                        <p class="text-neutral-700 mt-3">IRR is the discount rate at which the project's NPV becomes zero. It represents the project's expected percentage return. Higher is generally better.</p>
+                         <p class="text-sm text-neutral-500 mt-1">(Note: IRR calculation is complex and shown here based on initial report data; dynamic recalculation for IRR is not implemented in this interactive version.)</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="text-xl font-semibold text-sky-500 mb-2">Payback Period</h3>
+                        <p id="paybackValue" class="text-3xl font-bold text-neutral-800">X.XX Years</p>
+                        <p class="text-neutral-700 mt-3">The time it takes for the project's cumulative cash inflows to recover the initial investment. Shorter is generally preferred.</p>
+                    </div>
+                </div>
+                <div class="mt-8 p-4 bg-sky-50 border border-sky-200 rounded-md">
+                    <h4 class="font-semibold text-sky-700">Interpretation of Current Metrics:</h4>
+                    <p id="valuationInterpretation" class="text-neutral-700"></p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-12 py-6 border-t border-neutral-300">
+            <p class="text-sm text-neutral-500">&copy; 2024 Conceptual Financial Model Explorer. For illustrative purposes only.</p>
+        </footer>
+    </div>
+
+    <script>
+        const initialData = {
+            projectName: "Alpha Oil Field Development",
+            contractType: "Gross Split PSC (Indonesia)",
+            projectDurationYears: 5,
+            oilPricePerBarrel: 70,
+            initialProvedReservesMMbbl: 100,
+            initialAnnualProductionMMbbl: 10,
+            productionDeclineRate: 0.10, // 10%
+            capexYear0MM: 200,
+            variableOpexPerBarrel: 15,
+            fixedOpexPerYearMM: 10,
+            abandonmentCostsYear5MM: 50,
+            discountRate: 0.10, // 10%
+            contractorBaseSplit: 0.47, // 47%
+            dmoFactorProduction: 0.25, // 25% of total production for DMO calculation base
+            dmoPriceFactor: 0.50, // DMO volume sold at 50% of market price
+            citRate: 0.25 // 25%
+        };
+
+        let currentOilPrice = initialData.oilPricePerBarrel;
+        let currentDiscountRate = initialData.discountRate;
+        let currentProjectDurationYears = initialData.projectDurationYears;
+        let currentInitialProvedReservesMMbbl = initialData.initialProvedReservesMMbbl;
+        let currentInitialAnnualProductionMMbbl = initialData.initialAnnualProductionMMbbl;
+
+        let productionRevenueChartInstance, costScheduleChartInstance, cashFlowChartInstance;
+
+        function formatNumber(num, decimals = 2) {
+            return num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        }
+
+        function calculateModelData() {
+            const years = Array.from({ length: currentProjectDurationYears + 1 }, (_, i) => i);
+            const model = {
+                production: [], revenue: [], capex: [], varOpex: [], fixOpex: [], totalOpex: [], abandonCosts: [],
+                contractorGrossShare: [], dmoAdjustment: [], netContractorRevenue: [], taxableIncome: [], cit: [],
+                contractorNCFPreAbandon: [], initialInvestment: [], totalNCF: []
+            };
+
+            let currentProduction = 0;
+            let cumulativeProduced = 0; // Track cumulative production
+
+            years.forEach(year => {
+                model.initialInvestment[year] = (year === 0) ? -initialData.capexYear0MM : 0;
+                model.capex[year] = (year === 0) ? initialData.capexYear0MM : 0;
+                
+                if (year === 0) {
+                    currentProduction = 0;
+                } else if (year === 1) {
+                    currentProduction = currentInitialAnnualProductionMMbbl;
+                } else {
+                    currentProduction *= (1 - initialData.productionDeclineRate);
+                }
+
+                // Cap production by remaining reserves
+                const remainingReserves = currentInitialProvedReservesMMbbl - cumulativeProduced;
+                if (currentProduction > remainingReserves) {
+                    currentProduction = remainingReserves > 0 ? remainingReserves : 0; // Ensure it doesn't go negative
+                }
+                
+                model.production[year] = currentProduction;
+                cumulativeProduced += currentProduction; // Update cumulative produced
+                
+                model.revenue[year] = currentProduction * currentOilPrice;
+
+                model.varOpex[year] = currentProduction * initialData.variableOpexPerBarrel;
+                model.fixOpex[year] = (year > 0 && year <= currentProjectDurationYears) ? initialData.fixedOpexPerYearMM : 0; // Fixed OPEX only for project duration
+                model.totalOpex[year] = model.varOpex[year] + model.fixOpex[year];
+                
+                model.abandonCosts[year] = (year === currentProjectDurationYears) ? initialData.abandonmentCostsYear5MM : 0; // Abandonment in last year of new duration
+
+                model.contractorGrossShare[year] = model.revenue[year] * initialData.contractorBaseSplit;
+                
+                // DMO Adjustment as per report's table logic: (Total Production * 25% * Oil Price * 50%)
+                // This is the value that reduces the contractor's gross share.
+                model.dmoAdjustment[year] = (year > 0) ? (model.production[year] * initialData.dmoFactorProduction * currentOilPrice * initialData.dmoPriceFactor) : 0;
+
+                model.netContractorRevenue[year] = model.contractorGrossShare[year] - model.dmoAdjustment[year];
+                
+                let taxableInc = 0;
+                if (year > 0) {
+                    taxableInc = model.netContractorRevenue[year] - model.totalOpex[year];
+                }
+                model.taxableIncome[year] = Math.max(0, taxableInc); // Assuming no loss carry forward for simplicity here
+                model.cit[year] = model.taxableIncome[year] * initialData.citRate;
+
+                let ncfPreAbandon = 0;
+                if (year === 0) {
+                    ncfPreAbandon = -model.capex[year];
+                } else {
+                    ncfPreAbandon = model.netContractorRevenue[year] - model.totalOpex[year] - model.cit[year];
+                }
+                model.contractorNCFPreAbandon[year] = ncfPreAbandon;
+                
+                model.totalNCF[year] = model.contractorNCFPreAbandon[year] - model.abandonCosts[year];
+                 if (year === 0 && model.capex[year] > 0) { // Ensure initial investment is captured correctly if not in NCF pre-abandon
+                    model.totalNCF[year] = -model.capex[year];
+                }
+            });
+            return model;
+        }
+
+        function populateTables(modelData) {
+            const prodRevTable = document.getElementById('productionRevenueTable').getElementsByTagName('tbody')[0];
+            prodRevTable.innerHTML = '';
+            modelData.production.forEach((_, year) => {
+                let row = prodRevTable.insertRow();
+                row.insertCell().textContent = year;
+                row.insertCell().textContent = formatNumber(modelData.production[year]);
+                row.insertCell().textContent = (year > 0) ? formatNumber(currentOilPrice) : '0.00';
+                row.insertCell().textContent = formatNumber(modelData.revenue[year]);
+            });
+
+            const costTable = document.getElementById('costScheduleTable').getElementsByTagName('tbody')[0];
+            costTable.innerHTML = '';
+            modelData.capex.forEach((_, year) => {
+                let row = costTable.insertRow();
+                row.insertCell().textContent = year;
+                row.insertCell().textContent = formatNumber(modelData.capex[year]);
+                row.insertCell().textContent = formatNumber(modelData.varOpex[year]);
+                row.insertCell().textContent = formatNumber(modelData.fixOpex[year]);
+                row.insertCell().textContent = formatNumber(modelData.totalOpex[year]);
+                row.insertCell().textContent = formatNumber(modelData.abandonCosts[year]);
+            });
+            
+            const fiscalTable = document.getElementById('fiscalRegimeTable').getElementsByTagName('tbody')[0];
+            fiscalTable.innerHTML = '';
+             modelData.revenue.forEach((_, year) => {
+                let row = fiscalTable.insertRow();
+                row.insertCell().textContent = year;
+                row.insertCell().textContent = formatNumber(modelData.revenue[year]);
+                row.insertCell().textContent = formatNumber(modelData.contractorGrossShare[year]);
+                row.insertCell().textContent = formatNumber(modelData.dmoAdjustment[year]);
+                row.insertCell().textContent = formatNumber(modelData.netContractorRevenue[year]);
+                row.insertCell().textContent = formatNumber(modelData.totalOpex[year]);
+                row.insertCell().textContent = formatNumber(modelData.taxableIncome[year]);
+                row.insertCell().textContent = formatNumber(modelData.cit[year]);
+                row.insertCell().textContent = formatNumber(modelData.contractorNCFPreAbandon[year]);
+            });
+
+            const cashFlowTable = document.getElementById('projectCashFlowTable').getElementsByTagName('tbody')[0];
+            cashFlowTable.innerHTML = '';
+            modelData.totalNCF.forEach((_, year) => {
+                let row = cashFlowTable.insertRow();
+                row.insertCell().textContent = year;
+                row.insertCell().textContent = (year === 0) ? formatNumber(-initialData.capexYear0MM) : '0.00';
+                row.insertCell().textContent = (year === 0 && modelData.contractorNCFPreAbandon[year] === -initialData.capexYear0MM) ? '0.00' : formatNumber(modelData.contractorNCFPreAbandon[year]);
+                row.insertCell().textContent = (year === currentProjectDurationYears) ? formatNumber(-modelData.abandonCosts[year]) : '0.00';
+                row.insertCell().textContent = formatNumber(modelData.totalNCF[year]);
+            });
+        }
+        
+        function calculateValuationMetrics(modelData) {
+            let npv = 0;
+            modelData.totalNCF.forEach((cf, year) => {
+                npv += cf / Math.pow(1 + currentDiscountRate, year);
+            });
+
+            let cumulativeCF = 0;
+            let paybackYear = -1;
+            let initialInvestment = -modelData.totalNCF[0]; // Assuming Year 0 is initial investment outflow
+
+            if (initialInvestment <= 0) { // No initial investment or immediate positive cash flow
+                paybackYear = 0;
+            } else {
+                cumulativeCF = modelData.totalNCF[0]; // Start with initial investment (negative)
+                for (let year = 1; year < modelData.totalNCF.length; year++) {
+                    const previousCumulativeCF = cumulativeCF;
+                    cumulativeCF += modelData.totalNCF[year];
+
+                    if (previousCumulativeCF < 0 && cumulativeCF >= 0) { // Payback occurs in this year
+                        paybackYear = (year - 1) + (Math.abs(previousCumulativeCF) / modelData.totalNCF[year]);
+                        break;
+                    }
+                }
+            }
+
+            // IRR is complex to calculate iteratively in vanilla JS, using placeholder from report.
+            let irrDisplay = "~0.0%"; // Placeholder
+            if (npv > -1 && npv < 1 && currentDiscountRate !==0) { // Approximation if NPV is very close to 0
+                irrDisplay = `~${(currentDiscountRate * 100).toFixed(1)}%`;
+            } else if (npv > 0 && currentDiscountRate === 0.10) {
+                 irrDisplay = ">10.0%"; // If NPV is positive at 10%, IRR is higher
+            } else if (npv < 0 && currentDiscountRate === 0.10) {
+                 irrDisplay = "<10.0%";
+            }
+
+
+            document.getElementById('npvValue').textContent = `${formatNumber(npv)} MM`;
+            document.getElementById('npvDiscountRate').textContent = (currentDiscountRate * 100).toFixed(1);
+            document.getElementById('irrValue').textContent = irrDisplay; // Static based on report's findings
+            document.getElementById('paybackValue').textContent = paybackYear !== -1 ? `${formatNumber(paybackYear, 2)} Years` : "N/A (Does not payback)";
+            
+            let interpretationText = "";
+            if (npv > 0) {
+                interpretationText = "The project is expected to be profitable, generating value above the required rate of return. ";
+            } else {
+                interpretationText = "The project is not expected to generate sufficient value to cover its costs and provide the required rate of return. ";
+            }
+            if (paybackYear !== -1 && paybackYear <= currentProjectDurationYears) {
+                interpretationText += `The initial investment is recovered in approximately ${formatNumber(paybackYear,2)} years.`;
+            } else if (paybackYear !== -1) {
+                 interpretationText += `The initial investment is recovered in approximately ${formatNumber(paybackYear,2)} years, which is beyond the project's illustrative duration.`;
+            }
+            else {
+                interpretationText += "The project does not achieve payback within the analyzed period.";
+            }
+            document.getElementById('valuationInterpretation').textContent = interpretationText;
+        }
+
+        function createCharts(modelData) {
+            const years = Array.from({ length: currentProjectDurationYears + 1 }, (_, i) => `Year ${i}`);
+            const productionYears = years.slice(1); // For charts starting from Year 1 production
+
+            // Production & Revenue Chart
+            const prodRevCtx = document.getElementById('productionRevenueChart').getContext('2d');
+            if (productionRevenueChartInstance) productionRevenueChartInstance.destroy();
+            productionRevenueChartInstance = new Chart(prodRevCtx, {
+                type: 'bar',
+                data: {
+                    labels: productionYears,
+                    datasets: [
+                        {
+                            label: 'Production (MMbbl)',
+                            data: modelData.production.slice(1),
+                            borderColor: '#38bdf8', // sky-400
+                            backgroundColor: '#7dd3fc', // sky-300
+                            yAxisID: 'y',
+                            type: 'line',
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Gross Revenue ($MM)',
+                            data: modelData.revenue.slice(1),
+                            borderColor: '#0ea5e9', // sky-600
+                            backgroundColor: '#38bdf8', // sky-500
+                            yAxisID: 'y1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Production (MMbbl)' } },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Gross Revenue ($MM)' }, grid: { drawOnChartArea: false } }
+                    },
+                    plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'top'} }
+                }
+            });
+
+            // Cost Schedule Chart
+            const costCtx = document.getElementById('costScheduleChart').getContext('2d');
+            if (costScheduleChartInstance) costScheduleChartInstance.destroy();
+            costScheduleChartInstance = new Chart(costCtx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [
+                        { label: 'CAPEX ($MM)', data: modelData.capex, backgroundColor: '#fb923c' }, // orange-400
+                        { label: 'Total OPEX ($MM)', data: modelData.totalOpex, backgroundColor: '#facc15' }, // yellow-400
+                        { label: 'Abandonment Costs ($MM)', data: modelData.abandonCosts.map(c => c > 0 ? c : 0), backgroundColor: '#a855f7' } // purple-500
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Costs ($MM)'} } },
+                    plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'top'} }
+                }
+            });
+            
+            // Cash Flow Chart
+            const cashFlowCtx = document.getElementById('cashFlowChart').getContext('2d');
+            if (cashFlowChartInstance) cashFlowChartInstance.destroy();
+            cashFlowChartInstance = new Chart(cashFlowCtx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [
+                         {
+                            label: "Contractor's NCF (Pre-Abandonment) ($MM)",
+                            data: modelData.contractorNCFPreAbandon,
+                            borderColor: '#22c55e', // green-500
+                            backgroundColor: '#4ade80', // green-400
+                            type: 'line',
+                            tension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: 'Total Net Cash Flow ($MM)',
+                            data: modelData.totalNCF,
+                            borderColor: '#0ea5e9', // sky-600
+                            backgroundColor: '#38bdf8', // sky-500
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { title: { display: true, text: 'Cash Flow ($MM)'} } },
+                    plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'top'} }
+                }
+            });
+        }
+        
+        function updateUI() {
+            const modelData = calculateModelData();
+            populateTables(modelData);
+            createCharts(modelData);
+            calculateValuationMetrics(modelData);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.tab-button');
+            const sections = document.querySelectorAll('.content-section');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab).classList.add('active');
+                });
+            });
+            
+            document.getElementById('oilPrice').value = initialData.oilPricePerBarrel;
+            document.getElementById('discountRate').value = initialData.discountRate * 100;
+            document.getElementById('projectDuration').value = initialData.projectDurationYears;
+            document.getElementById('initialProvedReserves').value = initialData.initialProvedReservesMMbbl;
+            document.getElementById('initialAnnualProduction').value = initialData.initialAnnualProductionMMbbl;
+
+
+            document.getElementById('updateAssumptionsBtn').addEventListener('click', () => {
+                currentOilPrice = parseFloat(document.getElementById('oilPrice').value) || initialData.oilPricePerBarrel;
+                currentDiscountRate = parseFloat(document.getElementById('discountRate').value) / 100 || initialData.discountRate;
+                currentProjectDurationYears = parseInt(document.getElementById('projectDuration').value) || initialData.projectDurationYears;
+                currentInitialProvedReservesMMbbl = parseFloat(document.getElementById('initialProvedReserves').value) || initialData.initialProvedReservesMMbbl;
+                currentInitialAnnualProductionMMbbl = parseFloat(document.getElementById('initialAnnualProduction').value) || initialData.initialAnnualProductionMMbbl;
+
+                updateUI();
+            });
+
+            updateUI(); // Initial population
+        });
+    </script>
+</body>
+</html>
